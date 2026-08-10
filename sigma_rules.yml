@@ -1,0 +1,54 @@
+title: Nmap Port Scan & Network Reconnaissance Activity
+id: 5a7362a2-8921-4f10-9b3e-e67c8df4f120
+status: experimental
+description: Detects network port scanning activity matching Nmap reconnaissance patterns (SYN, Connect, Stealth FIN/NULL/XMAS scans).
+references:
+    - https://nmap.org/book/man-port-scanning-techniques.html
+    - https://attack.mitre.org/techniques/T1046/
+author: Antigravity Detection Engineering Lab
+date: 2026/08/10
+tags:
+    - attack.reconnaissance
+    - attack.t1046
+logsource:
+    category: firewall
+    product: linux
+    service: iptables
+detection:
+    selection_flags_null:
+        tcp_flags:
+            - '0x00'
+            - '0'
+    selection_flags_xmas:
+        tcp_flags:
+            - '0x29'
+            - 'FPU'
+    selection_flags_fin:
+        tcp_flags:
+            - '0x01'
+            - 'F'
+    filter_authorized_scanners:
+        src_ip:
+            - '10.0.0.50'
+            - '192.168.1.200'
+    condition: (1 of selection_flags_*) and not filter_authorized_scanners
+falsepositives:
+    - Asymmetric network routing where TCP FIN packets arrive without prior state tracking.
+    - Legacy network management agents performing custom heartbeats.
+level: high
+---
+title: High-Volume TCP/UDP Port Sweep
+id: 9c8b7a6f-1234-4567-89ab-cdef01234567
+status: stable
+description: Detects single source IP addressing multiple destination ports in a short duration across network firewall logs.
+logsource:
+    category: network_connection
+detection:
+    selection:
+        event.outcome: 'deny'
+    timeframe: 2m
+    condition: selection | count(destination.port) by source.ip > 20
+falsepositives:
+    - Internal vulnerability assessment tools (Nessus, Qualys, Rapid7).
+    - Misconfigured client applications retrying dynamic ports.
+level: medium

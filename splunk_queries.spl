@@ -1,0 +1,96 @@
+# ==============================================================================
+# SPLUNK SPL DETECTION RULE SUITE: NMAP PORT SCANNING & RECONNAISSANCE
+# Technology: Splunk Enterprise / Splunk Cloud / Enterprise Security (ES)
+# Data Models / Index: Network_Traffic, index=firewall, index=ids, index=netflow
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# RULE 1: Standard TCP SYN & Connect Sweep Detection (High Volume)
+# Description: Detects a single source IP probing > 25 distinct destination ports
+#              within a 2-minute time window across blocked/dropped connection attempts.
+# Data Model: Network_Traffic.All_Traffic
+# ------------------------------------------------------------------------------
+| tstats `summariesonly` count dc(All_Traffic.dest_port) as distinct_ports values(All_Traffic.dest_port) as targeted_ports 
+    from datamodel=Network_Traffic.All_Traffic 
+    where All_Traffic.action="blocked" OR All_Traffic.action="dropped" OR All_Traffic.action="failure"
+    by _time span=2m All_Traffic.src All_Traffic.dest All_Traffic.transport
+| rename All_Traffic.src as src_ip, All_Traffic.dest as dest_ip, All_Traffic.transport as protocol
+| filter distinct_ports > 25
+# --- False Positive Tuning ---
+| lookup scanner_whitelist.csv ip as src_ip OUTPUT is_authorized_scanner scanner_name
+| search is_authorized_scanner!="true"
+| eval risk_score=case(distinct_ports > 500, 90, distinct_ports > 100, 70, true(), 40)
+| table _time, src_ip, dest_ip, protocol, distinct_ports, targeted_ports, risk_score
+
+
+# ------------------------------------------------------------------------------
+# RULE 2: Stealth TCP Flag Anomaly Detection (FIN, NULL, XMAS, ACK Scans)
+# Description: Nmap stealth scans use invalid or RFC-violating TCP flag combinations.
+#              - NULL Scan: No flags set (flags="0" or "0x00")
+#              - XMAS Scan: FIN+PSH+URG set (flags="FPU" or "0x29")
+#              - FIN Scan: Only FIN set (flags="F" or "0x01")
+#              - ACK Scan: Only ACK set to unestablished sessions
+# Data Source: Suricata / Snort / Palo Alto / Linux iptables (index=ids OR index=firewall)
+# ------------------------------------------------------------------------------
+index=ids OR index=firewall sourcetype="suricata:eve" OR sourcetype="paloalto:traffic" OR sourcetype="syslog:iptables"
+| eval tcp_flags_str = case(
+    sourcetype=="suricata:eve", 'tcp.tcp_flags',
+    sourcetype=="syslog:iptables", 'tcp_flags',
+    true(), 'flags'
+)
+| search (tcp_flags_str="0" OR tcp_flags_str="0x00" OR tcp_flags_str="FPU" OR tcp_flags_str="0x29" OR tcp_flags_str="F" OR tcp_flags_str="0x01" OR tcp_flags_str="NULL")
+| stats count, values(dest_port) as targeted_ports, dc(dest_port) as distinct_ports, values(tcp_flags_str) as detected_flags by _time span=5m, src_ip, dest_ip
+| filter distinct_ports >= 5 OR count >= 10
+# --- False Positive Tuning ---
+# Filter out legitimate TCP keep-alives or asymmetric routing FIN-only artifacts
+| where not (tcp_flags_str=="F" AND distinct_ports==1 AND count<3)
+| eval severity="HIGH", alert_name="Nmap Stealth Flag Anomaly Scan Detected"
+| table _time, src_ip, dest_ip, detected_flags, distinct_ports, count, severity
+
+
+# ------------------------------------------------------------------------------
+# RULE 3: Low-and-Slow Reconnaissance Detection (Sliding Window Aggregation)
+# Description: Detects attackers attempting to evade rate thresholds by scanning
+#              slowly over an extended period (e.g. 1-2 ports per minute over 1 hour).
+# Data Model: Network_Traffic
+# ------------------------------------------------------------------------------
+| tstats `summariesonly` count dc(All_Traffic.dest_port) as distinct_ports values(All_Traffic.dest_port) as sample_ports
+    from datamodel=Network_Traffic.All_Traffic
+    where All_Traffic.action="blocked" OR All_Traffic.action="dropped"
+    by _time span=1h All_Traffic.src All_Traffic.dest
+| rename All_Traffic.src as src_ip, All_Traffic.dest as dest_ip
+| filter distinct_ports >= 15 AND distinct_ports <= 100
+# Calculate port scan velocity (ports scanned per minute over the hour)
+| eval scan_velocity_per_min = round(distinct_ports / 60, 2)
+# --- False Positive Tuning ---
+# Exclude known internal vulnerability management platforms & cloud load balancers
+| lookup internal_scanners.csv ip as src_ip OUTPUT scanner_role
+| search NOT scanner_role IN ("Nessus", "Qualys", "Rapid7", "LoadBalancer")
+| table _time, src_ip, dest_ip, distinct_ports, scan_velocity_per_min, sample_ports
+
+
+# ------------------------------------------------------------------------------
+# RULE 4: UDP Port Sweep & UDP Probe Detection
+# Description: Nmap UDP scans (`-sU`) result in ICMP Port Unreachable responses
+#              or dropped UDP packets to non-listening ports.
+# Data Source: Firewall / Router / Syslog logs
+# ------------------------------------------------------------------------------
+index=firewall transport=udp (action="blocked" OR action="dropped" OR reason="port-unreachable")
+| stats count dc(dest_port) as distinct_udp_ports values(dest_port) as sample_ports by _time span=5m, src_ip, dest_ip
+| filter distinct_udp_ports > 10
+# --- False Positive Tuning ---
+# Suppress common broadcast/multicast UDP noise (NTP:123, DNS:53, NetBIOS:137, SSDP:1900, mDNS:5353)
+| eval non_noise_ports = mvfilter(not match(sample_ports, "^(53|123|137|1900|5353)$"))
+| eval non_noise_count = mvcount(non_noise_ports)
+| where non_noise_count > 8
+| table _time, src_ip, dest_ip, distinct_udp_ports, non_noise_count, non_noise_ports
+
+
+# ------------------------------------------------------------------------------
+# RULE 5: Risk-Based Alerting (RBA) Aggregation Query for Enterprise Security
+# Description: Correlates multiple low-severity reconnaissance signals from the same source.
+# ------------------------------------------------------------------------------
+index=risk search_name="Nmap *"
+| stats sum(risk_score) as total_risk, values(search_name) as triggered_rules, dc(dest_ip) as target_count by src_ip
+| where total_risk >= 100
+| table src_ip, total_risk, triggered_rules, target_count

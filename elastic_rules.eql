@@ -1,0 +1,90 @@
+# ==============================================================================
+# ELASTIC / ELK DETECTION RULE SUITE: NMAP PORT SCANNING & RECONNAISSANCE
+# Technology: Elastic Security / Kibana / Elasticsearch (Elastic Common Schema - ECS)
+# Categories: network, firewall, security_solution
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# EQL RULE 1: TCP Port Sweep Sequence (EQL - Event Query Language)
+# Description: Detects a sequence of blocked connection attempts from a single source
+#              to 20 or more distinct destination ports on a target host within 3 minutes.
+# Language: eql
+# ------------------------------------------------------------------------------
+sequence by source.ip, destination.ip with maxspan=3m
+  [ network where event.category == "network" and event.type == "connection" and
+    event.outcome == "failure" and network.transport == "tcp" ]
+  [ network where event.category == "network" and event.type == "connection" and
+    event.outcome == "failure" and network.transport == "tcp" ]
+  [ network where event.category == "network" and event.type == "connection" and
+    event.outcome == "failure" and network.transport == "tcp" ]
+  # EQL threshold correlation logic
+  until [ network where event.category == "network" and destination.port > 0 ]
+
+
+# ------------------------------------------------------------------------------
+# KQL QUERY 1: Kibana Threshold Rule - High Volume Port Scan
+# Description: Query used in Kibana Threshold Alert Engine.
+# Index Pattern: logs-network.*, firewall-*
+# Language: kql
+# ------------------------------------------------------------------------------
+event.category: "network" AND event.outcome: ("failure" OR "deny" OR "block") AND NOT source.ip: (
+  10.0.0.50 OR 192.168.1.200 # Vulnerability Scanners Excluded
+)
+# Group by: source.ip, destination.ip
+# Threshold Condition: Cardinality of destination.port >= 25 in 5 minutes interval
+
+
+# ------------------------------------------------------------------------------
+# EQL RULE 2: Anomalous TCP Flag Combinations (FIN / NULL / XMAS Stealth Scans)
+# Description: Detects packets with unusual TCP flag combinations typical of Nmap stealth scans.
+# Language: eql
+# ------------------------------------------------------------------------------
+network where event.category == "network" and network.transport == "tcp" and (
+  /* NULL Scan: No flags */
+  tcp.flags == "0x00" or tcp.flags == "0" or
+  /* XMAS Scan: FIN, PSH, URG */
+  tcp.flags == "0x29" or tcp.flags == "FPU" or
+  /* FIN Scan: Only FIN */
+  (tcp.flags == "0x01" and not event.dataset == "zeek.conn")
+) and not (
+  /* False Positive Reduction: Exclude legitimate connection teardowns */
+  destination.port == 80 or destination.port == 443
+)
+
+
+# ------------------------------------------------------------------------------
+# KQL QUERY 2: Nmap OS & Service Version Fingerprinting Probes (-sV / -O)
+# Description: Identifies Nmap service version detection probes emitting default payload headers or unusual user-agents.
+# Language: kql
+# ------------------------------------------------------------------------------
+network.protocol: "http" AND (
+  user_agent.original: "*Nmap*" OR 
+  http.request.headers.user_agent: "*Nmap Scripting Engine*" OR
+  http.request.body.content: "*Nmap*"
+)
+
+
+# ------------------------------------------------------------------------------
+# KIBANA DETECTION ENGINE RULE SPECIFICATION (JSON format for direct import)
+# ------------------------------------------------------------------------------
+{
+  "name": "Nmap Port Scan Reconnaissance Detected",
+  "type": "threshold",
+  "risk_score": 73,
+  "severity": "high",
+  "description": "Detects high-volume port scanning activity characteristic of Nmap -sS or -sT reconnaissance.",
+  "query": "event.category: \"network\" AND event.outcome: (\"failure\" OR "deny\" OR \"block\")",
+  "filters": [
+    {
+      "meta": { "negate": true },
+      "query": { "match_phrase": { "source.ip": "10.0.0.100" } }
+    }
+  ],
+  "threshold": {
+    "field": "destination.port",
+    "cardinality": 25
+  },
+  "group_by": ["source.ip", "destination.ip"],
+  "interval": "5m",
+  "tags": ["Reconnaissance", "Nmap", "PortScan", "MITRE ATT&CK TA0043 T1046"]
+}

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Port Scan Detection Engineering Lab | Splunk, ELK, Nmap & Kali</title>
+    <meta name="description" content="Interactive Detection Engineering Lab for analyzing Nmap scan techniques and engineering Splunk SPL and ELK EQL rules with false positive reduction.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <div class="brand-icon">🛡️</div>
+                <div>
+                    <h1>Port Scan Detection Engineering Lab</h1>
+                    <p class="subtitle">Multi-Scan Analysis &bull; Splunk SPL &bull; Elastic EQL &bull; False Positive Reduction</p>
+                </div>
+            </div>
+            <div class="tech-stack-badges">
+                <span class="badge kali"><span class="dot"></span> Kali Linux</span>
+                <span class="badge nmap"><span class="dot"></span> Nmap</span>
+                <span class="badge splunk"><span class="dot"></span> Splunk SPL</span>
+                <span class="badge elk"><span class="dot"></span> Elastic EQL</span>
+                <span class="badge suricata"><span class="dot"></span> Suricata IDS</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs-container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="tab-mechanics">
+                <span class="tab-icon">🎯</span> Scan Mechanics & Visualizer
+            </button>
+            <button class="nav-tab" data-tab="tab-queries">
+                <span class="tab-icon">🔍</span> SIEM Detection Workbench
+            </button>
+            <button class="nav-tab" data-tab="tab-tuning">
+                <span class="tab-icon">🛡️</span> False Positive Reduction Matrix
+            </button>
+            <button class="nav-tab" data-tab="tab-simulator">
+                <span class="tab-icon">⚡</span> Live Log Stream Simulator
+            </button>
+            <button class="nav-tab" data-tab="tab-labguide">
+                <span class="tab-icon">📚</span> Lab Setup & Kali Commands
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="main-container">
+
+        <!-- TAB 1: SCAN MECHANICS & VISUALIZER -->
+        <section id="tab-mechanics" class="tab-content active">
+            <div class="section-header">
+                <h2>Nmap Reconnaissance Scan Mechanics</h2>
+                <p>Select an Nmap scan type to inspect packet headers, RFC flag behavior, target responses, and IDS detection characteristics.</p>
+            </div>
+
+            <div class="scan-selector-grid">
+                <button class="scan-card active" data-scan="syn">
+                    <div class="scan-card-header">
+                        <span class="scan-tag syn">SYN</span>
+                        <h3>TCP SYN Stealth</h3>
+                    </div>
+                    <code>nmap -sS</code>
+                    <p>Half-open scan. Teardowns connection before handshake completes.</p>
+                </button>
+                <button class="scan-card" data-scan="connect">
+                    <div class="scan-card-header">
+                        <span class="scan-tag connect">CONNECT</span>
+                        <h3>TCP Connect</h3>
+                    </div>
+                    <code>nmap -sT</code>
+                    <p>Full 3-way handshake via OS socket API.</p>
+                </button>
+                <button class="scan-card" data-scan="null">
+                    <div class="scan-card-header">
+                        <span class="scan-tag null">NULL</span>
+                        <h3>Stealth NULL</h3>
+                    </div>
+                    <code>nmap -sN</code>
+                    <p>RFC 793 anomaly. Zero flags set in TCP header.</p>
+                </button>
+                <button class="scan-card" data-scan="fin">
+                    <div class="scan-card-header">
+                        <span class="scan-tag fin">FIN</span>
+                        <h3>Stealth FIN</h3>
+                    </div>
+                    <code>nmap -sF</code>
+                    <p>Sets only FIN flag without established TCP state.</p>
+                </button>
+                <button class="scan-card" data-scan="xmas">
+                    <div class="scan-card-header">
+                        <span class="scan-tag xmas">XMAS</span>
+                        <h3>Stealth Xmas</h3>
+                    </div>
+                    <code>nmap -sX</code>
+                    <p>Sets FIN, PSH, and URG flags simultaneously.</p>
+                </button>
+                <button class="scan-card" data-scan="ack">
+                    <div class="scan-card-header">
+                        <span class="scan-tag ack">ACK</span>
+                        <h3>TCP ACK Window</h3>
+                    </div>
+                    <code>nmap -sA</code>
+                    <p>Probes firewall statefulness and filtering rules.</p>
+                </button>
+                <button class="scan-card" data-scan="udp">
+                    <div class="scan-card-header">
+                        <span class="scan-tag udp">UDP</span>
+                        <h3>UDP Sweep</h3>
+                    </div>
+                    <code>nmap -sU</code>
+                    <p>Sends UDP packets; relies on ICMP Port Unreachable.</p>
+                </button>
+                <button class="scan-card" data-scan="version">
+                    <div class="scan-card-header">
+                        <span class="scan-tag version">VERSION</span>
+                        <h3>Service Probing</h3>
+                    </div>
+                    <code>nmap -sV -O</code>
+                    <p>Emits payload banners to identify service versions.</p>
+                </button>
+            </div>
+
+            <!-- Visual Breakdown Panel -->
+            <div class="mechanics-details-grid">
+                <!-- Left: Packet Flag Diagram -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>TCP Flag Header Matrix</h3>
+                        <span class="badge-neutral" id="flag-hex-badge">HEX: 0x02</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="tcp-flags-visualizer" id="tcp-flags-container">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                        <div class="packet-flow-box">
+                            <h4>Handshake & Flow Sequence</h4>
+                            <div class="flow-diagram" id="flow-diagram-container">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Technical Details & RFC Behavior -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Detection & RFC Technical Analysis</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-group">
+                            <label>Command Syntax:</label>
+                            <div class="code-snippet-box">
+                                <code id="scan-cmd-text">nmap -sS -p 1-1000 192.168.1.150</code>
+                                <button class="btn-copy" onclick="copyText('scan-cmd-text')">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="info-group">
+                            <label>RFC 793 Behavior & Responses:</label>
+                            <p class="desc-text" id="scan-rfc-text">Loading...</p>
+                        </div>
+
+                        <div class="info-group">
+                            <label>Firewall & IDS Footprint:</label>
+                            <p class="desc-text" id="scan-footprint-text">Loading...</p>
+                        </div>
+
+                        <div class="info-group">
+                            <label>Suricata IDS Signature Example:</label>
+                            <div class="code-snippet-box">
+                                <code id="suricata-sig-text">Loading...</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 2: SIEM DETECTION WORKBENCH -->
+        <section id="tab-queries" class="tab-content">
+            <div class="section-header">
+                <h2>SIEM Detection Query Workbench</h2>
+                <p>Explore production-grade Splunk SPL and Elastic EQL/KQL rules designed to detect Nmap reconnaissance while providing interactive threshold tuning controls.</p>
+            </div>
+
+            <div class="workbench-controls-bar">
+                <div class="control-group">
+                    <label>SIEM Engine:</label>
+                    <div class="toggle-switch-group">
+                        <button class="toggle-btn active" data-siem="splunk">Splunk Enterprise (SPL)</button>
+                        <button class="toggle-btn" data-siem="elastic">Elastic Security (EQL/KQL)</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Rule Category:</label>
+                    <select id="rule-category-select" class="select-input">
+                        <option value="sweep">Rule 1: High-Volume TCP SYN/Connect Sweep</option>
+                        <option value="stealth">Rule 2: Stealth Flag Anomalies (NULL / FIN / XMAS)</option>
+                        <option value="slow">Rule 3: Low-and-Slow Reconnaissance (Sliding Window)</option>
+                        <option value="udp">Rule 4: UDP Port Sweep & ICMP Probing</option>
+                        <option value="rba">Rule 5: Risk-Based Alerting (RBA) Aggregation</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dynamic Interactive Controls -->
+            <div class="tuning-panel">
+                <div class="tuning-slider-item">
+                    <div class="slider-header">
+                        <label for="distinct-ports-slider">Distinct Ports Threshold:</label>
+                        <span class="slider-value" id="distinct-ports-val">25 distinct ports</span>
+                    </div>
+                    <input type="range" id="distinct-ports-slider" min="5" max="200" value="25" step="5">
+                </div>
+
+                <div class="tuning-slider-item">
+                    <div class="slider-header">
+                        <label for="time-window-slider">Time Window Span:</label>
+                        <span class="slider-value" id="time-window-val">2m window</span>
+                    </div>
+                    <input type="range" id="time-window-slider" min="1" max="60" value="2" step="1">
+                </div>
+
+                <div class="tuning-toggle-item">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="chk-whitelist" checked>
+                        <span class="checkmark"></span>
+                        Enable Scanner Whitelist Lookup
+                    </label>
+                </div>
+            </div>
+
+            <!-- Query Code Editor Display -->
+            <div class="card query-display-card">
+                <div class="card-header">
+                    <div class="query-title-box">
+                        <span class="status-indicator active"></span>
+                        <h3 id="query-title-text">Splunk SPL: High-Volume TCP SYN/Connect Sweep</h3>
+                    </div>
+                    <button class="btn-primary" onclick="copyText('query-code-content')">📋 Copy SIEM Query</button>
+                </div>
+                <div class="card-body no-padding">
+                    <pre class="code-editor"><code id="query-code-content">Loading query content...</code></pre>
+                </div>
+            </div>
+
+            <!-- Logic Explanation -->
+            <div class="query-explanation-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Detection Mechanics</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="feature-list" id="query-mechanics-list">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>False Positive Tuning Built-In</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="feature-list" id="query-tuning-list">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 3: FALSE POSITIVE REDUCTION MATRIX -->
+        <section id="tab-tuning" class="tab-content">
+            <div class="section-header">
+                <h2>False Positive (FP) Reduction & Tuning Engine</h2>
+                <p>Demonstration of how raw threshold alerts create overwhelming alert fatigue, and how engineering multi-layered exclusions suppresses benign noise without missing true attacks.</p>
+            </div>
+
+            <div class="fp-simulator-grid">
+                <!-- Left: Raw Detection vs Tuned Engine -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Interactive FP Reduction Controls</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="desc-text">Toggle tuning controls below to see real-time impact on False Positive rate vs Detection Fidelity.</p>
+
+                        <div class="fp-toggle-stack">
+                            <label class="fp-toggle-box">
+                                <input type="checkbox" id="fp-opt-nessus" checked>
+                                <div class="toggle-content">
+                                    <strong>Vulnerability Scanner Whitelisting</strong>
+                                    <span>Exclude known internal Nessus / Qualys / Rapid7 IP pools</span>
+                                </div>
+                            </label>
+
+                            <label class="fp-toggle-box">
+                                <input type="checkbox" id="fp-opt-udpnoise" checked>
+                                <div class="toggle-content">
+                                    <strong>UDP Infrastructure Broadcast Suppression</strong>
+                                    <span>Ignore DNS (53), NTP (123), NetBIOS (137), mDNS (5353) bursts</span>
+                                </div>
+                            </label>
+
+                            <label class="fp-toggle-box">
+                                <input type="checkbox" id="fp-opt-cardinality" checked>
+                                <div class="toggle-content">
+                                    <strong>Distinct Port Cardinality Filter</strong>
+                                    <span>Require > 25 distinct destination ports (avoids web asset multi-fetching)</span>
+                                </div>
+                            </label>
+
+                            <label class="fp-toggle-box">
+                                <input type="checkbox" id="fp-opt-finteardown" checked>
+                                <div class="toggle-content">
+                                    <strong>TCP Teardown Noise Filtering</strong>
+                                    <span>Suppress asymmetric FIN-only packets to open Web/SSL ports</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Fidelity Stats & Comparison Chart -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Alert Noise & Fidelity Metrics</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="metrics-grid">
+                            <div class="metric-box alert-high">
+                                <span class="metric-value" id="fp-count-raw">1,420</span>
+                                <span class="metric-label">Raw Alerts / Day</span>
+                            </div>
+                            <div class="metric-box alert-success">
+                                <span class="metric-value" id="fp-count-tuned">3</span>
+                                <span class="metric-label">Tuned True Alerts</span>
+                            </div>
+                            <div class="metric-box alert-info">
+                                <span class="metric-value" id="fp-rate-reduced">99.78%</span>
+                                <span class="metric-label">FP Reduction</span>
+                            </div>
+                        </div>
+
+                        <div class="comparison-bar-container">
+                            <div class="bar-group">
+                                <div class="bar-label">
+                                    <span>Raw Basic Threshold Alerting</span>
+                                    <span class="bar-val text-red" id="bar-text-raw">1,420 Alerts (87% FPs)</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill fill-red" id="bar-fill-raw" style="width: 100%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="bar-group">
+                                <div class="bar-label">
+                                    <span>Tuned Detection Engine</span>
+                                    <span class="bar-val text-green" id="bar-text-tuned">3 Alerts (100% True Positives)</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill fill-green" id="bar-fill-tuned" style="width: 2%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="fidelity-status-box" id="fidelity-status-banner">
+                            <h4>🛡️ Detection Engine Status: Optimal Fidelity</h4>
+                            <p>All noise filters active. Vulnerability scanners excluded. High-confidence alerts guaranteed.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 4: LIVE LOG STREAM SIMULATOR -->
+        <section id="tab-simulator" class="tab-content">
+            <div class="section-header">
+                <h2>Live Log Stream Simulator</h2>
+                <p>Simulate real-time log ingestion for Suricata `eve.json`, Linux `iptables`, Splunk ECS, or Elastic Security formats to feed local testing pipelines.</p>
+            </div>
+
+            <div class="simulator-toolbar">
+                <div class="toolbar-item">
+                    <label>Log Format:</label>
+                    <select id="sim-format-select" class="select-input">
+                        <option value="suricata">Suricata IDS (eve.json)</option>
+                        <option value="syslog">Linux Kernel (iptables syslog)</option>
+                        <option value="splunk">Splunk Network Traffic ECS JSON</option>
+                        <option value="elastic">Elastic Security Network Events</option>
+                    </select>
+                </div>
+
+                <div class="toolbar-item">
+                    <label>Scan Pattern:</label>
+                    <select id="sim-scan-select" class="select-input">
+                        <option value="syn">TCP SYN Stealth Scan (-sS)</option>
+                        <option value="xmas">Stealth Xmas Flag Scan (-sX)</option>
+                        <option value="null">Stealth NULL Flag Scan (-sN)</option>
+                        <option value="udp">UDP Port Sweep (-sU)</option>
+                        <option value="version">Service Version Probe (-sV)</option>
+                    </select>
+                </div>
+
+                <div class="toolbar-buttons">
+                    <button class="btn-primary" id="btn-sim-start">▶ Start Log Stream</button>
+                    <button class="btn-secondary" id="btn-sim-clear">🗑️ Clear Console</button>
+                    <button class="btn-secondary" id="btn-sim-download">📥 Download Sample File</button>
+                </div>
+            </div>
+
+            <div class="terminal-container">
+                <div class="terminal-header">
+                    <div class="terminal-buttons">
+                        <span class="t-btn red"></span>
+                        <span class="t-btn yellow"></span>
+                        <span class="t-btn green"></span>
+                    </div>
+                    <span class="terminal-title">lab-siem-forwarder: /var/log/suricata/eve.json</span>
+                    <span class="terminal-status" id="sim-status-badge">PAUSED</span>
+                </div>
+                <div class="terminal-body" id="terminal-output">
+                    <div class="terminal-line comment"># Port Scan Detection Lab - Log Stream Console Ready</div>
+                    <div class="terminal-line comment"># Click 'Start Log Stream' to inject synthetic Nmap reconnaissance traffic...</div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 5: LAB SETUP & KALI COMMANDS -->
+        <section id="tab-labguide" class="tab-content">
+            <div class="section-header">
+                <h2>Lab Setup Guide & Kali Linux Command Reference</h2>
+                <p>Complete step-by-step instructions for launching Nmap scans from Kali Linux, configuring log forwarders, and validating detections.</p>
+            </div>
+
+            <div class="lab-guide-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>1. Kali Linux Nmap Cheatsheet</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="command-block">
+                            <div class="cmd-header">
+                                <span>TCP SYN Stealth Scan (-sS)</span>
+                                <button class="btn-copy" onclick="copyText('cmd1')">Copy</button>
+                            </div>
+                            <code id="cmd1">nmap -sS -p 1-1000 -T4 192.168.1.150</code>
+                        </div>
+
+                        <div class="command-block">
+                            <div class="cmd-header">
+                                <span>Stealth Flag Anomaly Scans (-sN, -sF, -sX)</span>
+                                <button class="btn-copy" onclick="copyText('cmd2')">Copy</button>
+                            </div>
+                            <code id="cmd2">nmap -sN 192.168.1.150 && nmap -sF 192.168.1.150 && nmap -sX 192.168.1.150</code>
+                        </div>
+
+                        <div class="command-block">
+                            <div class="cmd-header">
+                                <span>UDP Port Sweep (-sU)</span>
+                                <button class="btn-copy" onclick="copyText('cmd3')">Copy</button>
+                            </div>
+                            <code id="cmd3">nmap -sU --top-ports 50 192.168.1.150</code>
+                        </div>
+
+                        <div class="command-block">
+                            <div class="cmd-header">
+                                <span>Low-and-Slow Evasive Scan (-T1)</span>
+                                <button class="btn-copy" onclick="copyText('cmd4')">Copy</button>
+                            </div>
+                            <code id="cmd4">nmap -sS -T1 --scan-delay 15s -p 21,22,80,443,3389 192.168.1.150</code>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>2. SIEM Ingestion Instructions</h3>
+                    </div>
+                    <div class="card-body">
+                        <h4>Splunk File Monitoring Configuration (`inputs.conf`)</h4>
+                        <div class="code-snippet-box">
+<pre><code>[monitor:///var/log/suricata/eve.json]
+sourcetype = suricata:eve
+index = ids
+
+[monitor:///var/log/iptables.log]
+sourcetype = syslog:iptables
+index = firewall</code></pre>
+                        </div>
+
+                        <h4 class="margin-top-15">Elastic Filebeat Suricata Module Enable</h4>
+                        <div class="code-snippet-box">
+<pre><code>sudo filebeat modules enable suricata iptables
+sudo filebeat setup -e
+sudo systemctl restart filebeat</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer">
+        <p>Port Scan Detection Engineering Lab &bull; Developed for Security Analysts & SOC Engineers</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

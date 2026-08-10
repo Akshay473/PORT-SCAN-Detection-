@@ -1,0 +1,19 @@
+# ==============================================================================
+# SURICATA IDS SIGNATURE SUITE: NMAP SCAN DETECTIONS
+# Place in /etc/suricata/rules/local.rules
+# ==============================================================================
+
+# 1. Nmap NULL Scan (-sN) - Flags: NONE (0)
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ET SCAN Nmap NULL Scan Detected"; flags:0; threshold: type threshold, track by_src, count 5, seconds 60; reference:url,nmap.org/book/scan-methods-null-scan.html; classtype:attempted-recon; sid:1000001; rev:1;)
+
+# 2. Nmap XMAS Scan (-sX) - Flags: FIN, PSH, URG (FPU / 0x29)
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ET SCAN Nmap XMAS Scan Detected (FIN+PSH+URG)"; flags:FPU; threshold: type threshold, track by_src, count 5, seconds 60; reference:url,nmap.org/book/scan-methods-xmas-scan.html; classtype:attempted-recon; sid:1000002; rev:1;)
+
+# 3. Nmap FIN Stealth Scan (-sF) - Flags: FIN only without ACK/ESTABLISHED state
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ET SCAN Nmap FIN Scan Probe Detected"; flags:F,12; threshold: type threshold, track by_src, count 5, seconds 60; reference:url,nmap.org/book/scan-methods-fin-scan.html; classtype:attempted-recon; sid:1000003; rev:1;)
+
+# 4. Nmap Scripting Engine (NSE) HTTP User-Agent Detection
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS (msg:"ET SCAN Nmap Scripting Engine (NSE) User-Agent Header"; flow:established,to_server; http.user_agent; content:"Nmap Scripting Engine"; classtype:attempted-recon; sid:1000004; rev:1;)
+
+# 5. Rapid SYN Sweep on Multiple Ports (-sS)
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ET SCAN Nmap TCP SYN Sweep Activity"; flags:S,12; threshold: type threshold, track by_src, count 30, seconds 10; classtype:attempted-recon; sid:1000005; rev:1;)
