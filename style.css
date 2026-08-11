@@ -1010,3 +1010,96 @@ input[type=range] {
     color: var(--text-muted);
     background: var(--bg-surface);
 }
+
+
+/* --- TAB 6: LIVE DETECTOR --- */
+.live-controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.25rem;
+}
+
+.live-feed-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.live-feed-status .status-indicator {
+    background: var(--accent-red);
+    box-shadow: 0 0 8px var(--accent-red);
+}
+
+.live-feed-status.active .status-indicator {
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+}
+
+.live-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 700px) {
+    .live-metrics-grid { grid-template-columns: 1fr; }
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.data-table th {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--accent-cyan);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+    padding: 0.55rem 0.9rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-family: var(--font-mono);
+}
+
+.data-table tr:hover td {
+    background: rgba(0, 255, 157, 0.04);
+}
+
+.data-table .table-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    padding: 1.5rem;
+}
+
+.badge-danger {
+    background: rgba(255, 42, 109, 0.15);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}

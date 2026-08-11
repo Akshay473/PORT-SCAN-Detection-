@@ -283,6 +283,69 @@ Try it live in the **False Positive Reduction Matrix** tab of the workbench.
 
 ---
 
+## 🛰️ Live Detector (Real-World Mode)
+
+This lab isn't just synthetic — the **Live Detector** runs on this Windows machine and detects real port-scan reconnaissance **against your own PC** in real time.
+
+### How it works
+```
+[ Real inbound TCP/UDP traffic on THIS machine ]
+                    │
+                    ▼
+  [ Backend: TCP state table (default) or scapy/Npcap packet sniffing ]
+                    │
+                    ▼
+  [ Sliding-window cardinality: distinct destination ports / 120s ]
+                    │
+                    ▼
+  [ Whitelist check: live/scanner_whitelist.csv + loopback + own IPs ]
+                    │
+                    ▼
+[ Alert → alerts/live_alerts.jsonl + HTTP feed → Live Detector tab ]
+```
+
+**Two backends:**
+| Backend | Requirement | Detects |
+| :--- | :--- | :--- |
+| `state` (default) | **None — no admin/driver** | TCP SYN sweeps via half-open `SYN_RECEIVED` connections from `Get-NetTCPConnection` |
+| `pcap` (optional) | Npcap driver + admin | Full packet-level: SYN probes, UDP sweeps, stealth NULL/FIN/XMAS flag anomalies |
+
+### Quick start (live)
+```bash
+# Terminal 1: start the detector (state backend, no admin needed)
+python live/detector.py
+
+# Terminal 2: open the workbench and use the "🛰️ Live Detector" tab
+python -m http.server 8080
+# → http://localhost:8080  (Live Detector tab connects to http://127.0.0.1:8090)
+```
+
+### Try it without a real attacker
+```bash
+python live/detector.py --demo          # injects synthetic scans every 2s for 15s
+```
+
+### Optional: Npcap packet-level detection
+```bash
+# Install Npcap from https://npcap.com (run installer as Administrator),
+# then run the pcap backend:
+python live/detector.py --backend pcap
+```
+
+### CLI reference
+| Flag | Default | Purpose |
+| :--- | :--- | :--- |
+| `--backend` | `state` | Detection backend: `state` or `pcap` |
+| `--port` | `8090` | Local HTTP alert feed port (consumed by the dashboard) |
+| `--threshold` | `25` | Distinct destination ports required before alerting |
+| `--whitelist` | `live/scanner_whitelist.csv` | CSV of authorized scanner IPs to exclude |
+| `--poll` | `5` | State-table poll interval in seconds |
+| `--demo` | off | Inject synthetic scan events for testing |
+
+Alerts append to `alerts/live_alerts.jsonl` and are exposed over HTTP at `/alerts`, `/events`, `/stats`, and `/health`.
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -291,6 +354,9 @@ port-scan-detection-lab/
 ├── index.html                 # Interactive Web Workbench & GUI Dashboard
 ├── style.css                  # Modern Cybersecurity Dark Theme Stylesheet
 ├── app.js                     # Workbench Logic, Visualizers & Live Terminal Streamer
+├── live/
+│   ├── detector.py            # Real-time Port Scan Detector (state + pcap backends)
+│   └── scanner_whitelist.csv  # Authorized scanner IPs excluded from live alerts
 ├── simulator/
 │   └── scan_simulator.py      # Python Log Generator for Nmap Scans & Noise
 ├── rules/
@@ -298,6 +364,7 @@ port-scan-detection-lab/
 │   ├── elastic_rules.eql      # Elastic EQL Sequences, KQL Queries & Kibana Detection JSON
 │   ├── sigma_rules.yml        # Portable Vendor-Neutral Sigma Rules
 │   └── suricata_rules.rules   # Suricata IDS Signatures for Flag Anomalies
+├── alerts/                    # Live detection alert logs (JSONL, runtime-generated)
 └── docs/
     └── LAB_GUIDE.md           # Step-by-Step Lab Setup Manual & Kali Commands
 ```

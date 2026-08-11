@@ -50,6 +50,9 @@
             <button class="nav-tab" data-tab="tab-labguide">
                 <span class="tab-icon">📚</span> Lab Setup & Kali Commands
             </button>
+            <button class="nav-tab" data-tab="tab-live">
+                <span class="tab-icon">🛰️</span> Live Detector
+            </button>
         </div>
     </nav>
 
@@ -510,6 +513,83 @@ index = firewall</code></pre>
 sudo filebeat setup -e
 sudo systemctl restart filebeat</code></pre>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 6: LIVE DETECTOR -->
+        <section id="tab-live" class="tab-content">
+            <div class="section-header">
+                <h2>Live Port Scan Detector</h2>
+                <p>Real-time detection against THIS machine. Run <code>python live/detector.py</code> to start the detector, then watch live alerts stream in below.</p>
+            </div>
+
+            <div class="live-controls-bar">
+                <div class="control-group">
+                    <label>Detector Feed:</label>
+                    <div class="live-feed-status" id="live-feed-status">
+                        <span class="status-indicator"></span>
+                        <span id="live-feed-text">Not connected</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Feed URL:</label>
+                    <input type="text" id="live-feed-url" class="select-input" value="http://127.0.0.1:8090" style="width: 220px;">
+                </div>
+                <button class="btn-primary" id="btn-live-connect">🔌 Connect</button>
+                <button class="btn-secondary" id="btn-live-refresh">🔄 Refresh</button>
+            </div>
+
+            <div class="live-metrics-grid">
+                <div class="metric-box alert-high">
+                    <span class="metric-value" id="live-alert-count">0</span>
+                    <span class="metric-label">Total Alerts</span>
+                </div>
+                <div class="metric-box alert-info">
+                    <span class="metric-value" id="live-event-count">0</span>
+                    <span class="metric-label">Total Events</span>
+                </div>
+                <div class="metric-box alert-success">
+                    <span class="metric-value" id="live-status-pill">—</span>
+                    <span class="metric-label">Feed Status</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Live Alerts</h3>
+                    <span class="badge-neutral" id="live-last-update">Never</span>
+                </div>
+                <div class="card-body no-padding">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Rule</th>
+                                    <th>Source IP</th>
+                                    <th>Distinct Ports</th>
+                                    <th>Severity</th>
+                                    <th>Risk</th>
+                                </tr>
+                            </thead>
+                            <tbody id="live-alerts-body">
+                                <tr><td colspan="6" class="table-empty">No alerts yet. Connect to the feed and run a scan.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 15px;">
+                <div class="card-header">
+                    <h3>Live Event Stream</h3>
+                    <span class="badge-neutral">Latest probes seen by the detector</span>
+                </div>
+                <div class="card-body no-padding">
+                    <div class="terminal-body" id="live-event-stream" style="height: 260px; overflow-y: auto;">
+                        <div class="terminal-line comment"># Connect to the feed to begin streaming live detections...</div>
                     </div>
                 </div>
             </div>

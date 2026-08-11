@@ -541,6 +541,112 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     });
 
+
+    // --------------------------------------------------------------------------
+    // 7. TAB 6: LIVE DETECTOR CONTROLLER
+    // --------------------------------------------------------------------------
+
+    let liveFeedUrl = 'http://127.0.0.1:8090';
+    let livePollTimer = null;
+    let liveLastCounts = { alerts: 0, events: 0 };
+
+    const btnLiveConnect = document.getElementById('btn-live-connect');
+    const btnLiveRefresh = document.getElementById('btn-live-refresh');
+    const liveFeedUrlInput = document.getElementById('live-feed-url');
+    const liveFeedStatus = document.getElementById('live-feed-status');
+    const liveFeedText = document.getElementById('live-feed-text');
+    const liveAlertCount = document.getElementById('live-alert-count');
+    const liveEventCount = document.getElementById('live-event-count');
+    const liveStatusPill = document.getElementById('live-status-pill');
+    const liveLastUpdate = document.getElementById('live-last-update');
+    const liveAlertsBody = document.getElementById('live-alerts-body');
+    const liveEventStream = document.getElementById('live-event-stream');
+
+    function setLiveStatus(ok, text) {
+        liveFeedStatus.classList.toggle('active', ok);
+        liveFeedText.innerText = text;
+        liveStatusPill.innerText = ok ? 'ONLINE' : 'OFFLINE';
+        liveStatusPill.style.color = ok ? 'var(--accent-green)' : 'var(--accent-red)';
+    }
+
+    function fmtTs(ts) {
+        if (!ts) return '—';
+        const d = new Date(ts);
+        return isNaN(d) ? ts : d.toLocaleTimeString();
+    }
+
+    function fmtRisk(score) {
+        if (score >= 90) return 'Critical';
+        if (score >= 70) return 'High';
+        if (score >= 40) return 'Medium';
+        return 'Low';
+    }
+
+    function renderLiveAlerts(alerts) {
+        if (!alerts.length) {
+            liveAlertsBody.innerHTML = '<tr><td colspan="6" class="table-empty">No alerts yet. Run a scan or wait for real traffic.</td></tr>';
+            return;
+        }
+        liveAlertsBody.innerHTML = alerts.map(a => `
+            <tr>
+                <td>${fmtTs(a.ts)}</td>
+                <td>${a.rule}</td>
+                <td>${a.src_ip}</td>
+                <td>${a.distinct_ports}${a.targeted_ports ? ' <small>(' + a.targeted_ports.length + ' seen)</small>' : ''}</td>
+                <td><span class="badge-danger">${a.severity}</span></td>
+                <td>${a.risk_score} — ${fmtRisk(a.risk_score)}</td>
+            </tr>`).join('');
+    }
+
+    function renderLiveEvents(events) {
+        if (!events.length) {
+            liveEventStream.innerHTML = '<div class="terminal-line comment"># No events captured yet.</div>';
+            return;
+        }
+        const lines = events.slice(0, 60).map(e => {
+            const flag = e.tcp_flags_hex ? ` [${e.tcp_flags_hex}]` : '';
+            const demo = e.demo ? ' [DEMO]' : '';
+            const cls = e.kind === 'syn_received' || e.kind === 'syn_probe' ? 'log-alert' : 'log-normal';
+            return `<div class="terminal-line ${cls}">${fmtTs(e.ts)} ${e.kind.toUpperCase()} ${e.src_ip} -> ${e.local || 'local'}:${e.dst_port}${flag}${demo}</div>`;
+        });
+        liveEventStream.innerHTML = lines.join('');
+        liveEventStream.scrollTop = 0;
+    }
+
+    async function pollLiveFeed() {
+        try {
+            const [alerts, events] = await Promise.all([
+                fetch(`${liveFeedUrl}/alerts`).then(r => r.json()),
+                fetch(`${liveFeedUrl}/events`).then(r => r.json()),
+            ]);
+            renderLiveAlerts(alerts);
+            renderLiveEvents(events);
+            liveAlertCount.innerText = alerts.length;
+            liveEventCount.innerText = events.length;
+            liveLastUpdate.innerText = `Updated ${new Date().toLocaleTimeString()}`;
+            setLiveStatus(true, `Connected to ${liveFeedUrl} — polling`);
+        } catch (err) {
+            setLiveStatus(false, 'Feed unreachable — is the detector running?');
+        }
+    }
+
+    function startLivePolling() {
+        if (livePollTimer) clearInterval(livePollTimer);
+        pollLiveFeed();
+        livePollTimer = setInterval(pollLiveFeed, 3000);
+    }
+
+    btnLiveConnect.addEventListener('click', () => {
+        liveFeedUrl = liveFeedUrlInput.value.trim().replace(/\/+$/, '');
+        startLivePolling();
+    });
+
+    btnLiveRefresh.addEventListener('click', pollLiveFeed);
+
+    liveFeedUrlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') btnLiveConnect.click();
+    });
+
 });
 
 

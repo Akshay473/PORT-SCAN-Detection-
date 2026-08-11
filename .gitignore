@@ -1,0 +1,10 @@
+# Runtime-generated live detection logs
+alerts/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+.DS_Store

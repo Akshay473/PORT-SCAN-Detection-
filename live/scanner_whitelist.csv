@@ -1,0 +1,4 @@
+ip,comment
+10.0.0.50,Nessus vulnerability scanner
+192.168.1.200,Qualys scanner
+192.168.1.210,Rapid7 InsightVM scanner
