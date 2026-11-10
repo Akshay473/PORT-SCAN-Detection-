@@ -121,7 +121,7 @@ This entire journey — **reconnaissance mechanics → log generation → SIEM r
 
 | Scan Technique | Nmap Command | Flag Mechanics / Header State | Detection Telemetry & Signature |
 | :--- | :--- | :--- | :--- |
-| **TCP SYN Stealth** | `nmap -sS -p 1-1000 <target>` | Sends `SYN`. Half-open teardown with `RST` upon receiving `SYN/ACK`. | High cardinality of dropped attempts (`dc(dest_port) > 25`). Suricata `flags:S,12` + `threshold: count 30, seconds 10`. |
+| **TCP SYN Stealth** | `nmap -sS -p 1-1000 <target>` | Sends `SYN`. Half-open teardown with `RST` upon receiving `SYN/ACK`. | High cardinality of dropped attempts (`dc(dest_port) >= 25`). Suricata `flags:S,12` + `threshold: count 30, seconds 10`. |
 | **TCP Connect** | `nmap -sT -p 1-1000 <target>` | Full 3-way handshake (`SYN` → `SYN/ACK` → `ACK`) via OS socket API. | OS socket creation & web/application access logs. |
 | **Stealth NULL Scan** | `nmap -sN <target>` | **Zero flags set** (`flags=0x00`) — RFC 793 violation. | Suricata `flags:0`. High-confidence IOC. |
 | **Stealth FIN Scan** | `nmap -sF <target>` | **Only FIN set** (`flags=0x01`) without established session state. | Suricata `flags:F,12` outside state table. |
@@ -138,7 +138,8 @@ This entire journey — **reconnaissance mechanics → log generation → SIEM r
 Run the local web server to access the visual lab interface, scan mechanics visualizer, SIEM query workbench (live Splunk SPL / Elastic EQL code generation), and FP reduction calculator:
 
 ```bash
-cd port-scan-detection-lab
+git clone https://github.com/Akshay473/PORT-SCAN-Detection-.git
+cd PORT-SCAN-Detection-
 python -m http.server 8080
 ```
 
@@ -189,11 +190,11 @@ Preview the first 10 lines directly in your terminal, then validate that a NULL 
 ```spl
 | tstats summariesonly=true count dc(All_Traffic.dest_port) as distinct_ports values(All_Traffic.dest_port) as targeted_ports 
     from datamodel=Network_Traffic.All_Traffic 
-    where All_Traffic.action="blocked" OR All_Traffic.action="dropped"
+    where All_Traffic.action="blocked" OR All_Traffic.action="dropped" OR All_Traffic.action="failure"
     by _time span=2m All_Traffic.src All_Traffic.dest All_Traffic.transport
 | rename All_Traffic.src as src_ip, All_Traffic.dest as dest_ip, All_Traffic.transport as protocol
-| filter distinct_ports >= 25
-| lookup scanner_whitelist.csv ip as src_ip OUTPUT is_authorized_scanner
+| where distinct_ports >= 25
+| lookup scanner_whitelist.csv ip as src_ip OUTPUT is_authorized_scanner scanner_name
 | search is_authorized_scanner!="true"
 | eval risk_score=case(distinct_ports > 500, 90, distinct_ports > 100, 70, true(), 40)
 | table _time, src_ip, dest_ip, protocol, distinct_ports, targeted_ports, risk_score
@@ -349,7 +350,7 @@ Alerts append to `alerts/live_alerts.jsonl` and are exposed over HTTP at `/alert
 ## 📁 Repository Structure
 
 ```
-port-scan-detection-lab/
+PORT-SCAN-Detection-/
 ├── README.md                  # Main Project Overview & Documentation (this file)
 ├── index.html                 # Interactive Web Workbench & GUI Dashboard
 ├── style.css                  # Modern Cybersecurity Dark Theme Stylesheet

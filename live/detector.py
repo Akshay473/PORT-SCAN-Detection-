@@ -232,7 +232,7 @@ def scan_pcap_backend(feed, window, whitelist, cooldown, threshold, local_ips):
         if pkt.haslayer(TCP):
             tcp = pkt[TCP]
             flags = int(tcp.flags)
-            dst_port = int(tcp.sport) if False else tcp.dport
+            dst_port = int(tcp.dport)
             if not tcp.flags.S and flags in (0, 0x01, 0x29):
                 for rule, match in STEALTH_RULES:
                     if flags == match["flags"] and not cooldown.is_blocked(f"{src}:{rule}", now):
@@ -279,7 +279,7 @@ def scan_pcap_backend(feed, window, whitelist, cooldown, threshold, local_ips):
     sniff(prn=process, store=False)
 
 
-def demo_mode(feed):
+def demo_mode(feed, whitelist):
     print("[+] demo mode: injecting synthetic scan events every 2s for 15s...")
     attackers = [("10.0.0.77", "attacker"), ("10.0.0.50", "nessus")]
     ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445,
@@ -292,7 +292,7 @@ def demo_mode(feed):
                 "kind": "syn_received", "src_ip": src, "dst_port": port,
                 "local": "192.168.1.150", "demo": True,
             })
-            if i >= 12:
+            if i >= 12 and src not in whitelist:
                 feed.add_alert({
                     "backend": "state", "rule": "TCP SYN Sweep (half-open)",
                     "src_ip": src, "distinct_ports": len(ports) if tag == "attacker" else 25,
@@ -363,7 +363,7 @@ def main():
     print(f"[+] threshold: {args.threshold} distinct ports / {WINDOW_SECONDS}s window")
 
     if args.demo:
-        threading.Thread(target=demo_mode, args=(feed,), daemon=True).start()
+        threading.Thread(target=demo_mode, args=(feed, whitelist), daemon=True).start()
     elif args.backend == "state":
         threading.Thread(
             target=scan_state_backend,
