@@ -97,7 +97,7 @@ def generate_splunk_ecs_json(src_ip, dest_ip, dest_port, scan_key):
         "scan_description": scan_info["desc"]
     }
 
-def run_simulation(scan_type="syn", count=30, format_type="suricata", output_file=None):
+def run_simulation(scan_type="syn", count=30, format_type="suricata", output_file=None, append=False):
     print(f"[+] Starting Port Scan Simulation...")
     print(f"[+] Attacker IP: {ATTACKER_IP} -> Target IP: {TARGET_IP}")
     print(f"[+] Scan Mode: {SCAN_TYPES.get(scan_type, {}).get('desc', scan_type)}")
@@ -131,7 +131,7 @@ def run_simulation(scan_type="syn", count=30, format_type="suricata", output_fil
                 events.append(json.dumps(generate_splunk_ecs_json(benign_src, TARGET_IP, 80, "connect")))
 
     if output_file:
-        with open(output_file, "w") as f:
+        with open(output_file, "a" if append else "w") as f:
             for item in events:
                 f.write(item + "\n")
         print(f"[✔] Logs successfully saved to: {output_file}")
@@ -151,7 +151,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.scan == "all":
+        if args.output:
+            open(args.output, "w").close()  # start a fresh combined file
         for st in SCAN_TYPES.keys():
-            run_simulation(scan_type=st, count=15, format_type=args.format, output_file=args.output)
+            run_simulation(scan_type=st, count=args.count, format_type=args.format,
+                           output_file=args.output, append=bool(args.output))
     else:
         run_simulation(scan_type=args.scan, count=args.count, format_type=args.format, output_file=args.output)

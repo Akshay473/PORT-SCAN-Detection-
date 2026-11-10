@@ -73,7 +73,7 @@ network.protocol: "http" AND (
   "risk_score": 73,
   "severity": "high",
   "description": "Detects high-volume port scanning activity characteristic of Nmap -sS or -sT reconnaissance.",
-  "query": "event.category: \"network\" AND event.outcome: (\"failure\" OR "deny\" OR \"block\")",
+  "query": "event.category: \"network\" AND event.outcome: (\"failure\" OR \"deny\" OR \"block\")",
   "filters": [
     {
       "meta": { "negate": true },
